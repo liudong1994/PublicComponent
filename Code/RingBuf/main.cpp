@@ -26,7 +26,7 @@ int main()
 
 
     char bufName[1024];
-    while(gets(bufName) != NULL && 0 != strcmp(bufName, "end"))
+    while(gets(bufName) != NULL && 0 != strcmp(bufName, "quit"))
     {
         printf("input: %s\n", bufName);
 
