@@ -1,0 +1,12 @@
+[Unit]
+Description=myprogram service
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/home/MY/start_myprogram.sh
+Restart=on-failure
+TimeoutSec=5
+
+[Install]
+WantedBy=multi-user.target

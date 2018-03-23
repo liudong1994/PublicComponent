@@ -1,0 +1,15 @@
+Linux下需要安装screen 方便后台进行screen查看日志调试信息
+
+Linux程序自启安装方式：
+cd install_pack_centos
+chmod +x install.sh
+./install.sh
+reboot
+
+启动顺序：
+myprogram.service  ->  start_myprogram.sh  ->  screen  ->  myprogram
+
+service停止和删除方法：
+systemctl stop myprogram.service		# 停止
+systemctl disable myprogram.service		# 删除开机自启
+
