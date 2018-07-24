@@ -15,6 +15,8 @@ Code
     3.2 hex2byte    16进制数据转换为字节流（可用于pb文件处理）
 4.RabbitmqClient    Rabbitmq客户端代码（机器需要安装rabbitmq-c库 github:https://github.com/alanxz/rabbitmq-c）
 5.DirMonitor        Linux目录变化监控
+6.QueueThreadSafe	读写队列(线程安全)
+	6.1 1			pthread_*相关函数实现
 
 
 DB：
