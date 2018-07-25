@@ -16,7 +16,8 @@ Code
 4.RabbitmqClient    Rabbitmq客户端代码（机器需要安装rabbitmq-c库 github:https://github.com/alanxz/rabbitmq-c）
 5.DirMonitor        Linux目录变化监控
 6.QueueThreadSafe	读写队列(线程安全)
-	6.1 1			pthread_*相关函数实现
+	queue_1			pthread_*相关函数实现
+	queue_2			C++11实现
 
 
 DB：
