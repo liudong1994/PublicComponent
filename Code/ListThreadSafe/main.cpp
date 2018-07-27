@@ -4,7 +4,7 @@
 #include <string>
 #include <thread>     // C++11
 
-#include "BlockList.h"
+#include "ThreadSafeList.h"
 
 using std::string;
 

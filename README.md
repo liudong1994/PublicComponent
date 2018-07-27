@@ -18,7 +18,8 @@ Code
 6.QueueThreadSafe	读写队列(线程安全)
 	queue_1			pthread_*相关函数实现
 	queue_2			C++11实现
-7.ListThreadSafe 	读写列表（线程安全）
+7 ListThreadSafe 	读写列表（线程安全）
+8 AsyncTask			异步任务处理（内部实现依赖 7 ListThreadSafe）
 
 
 DB：

@@ -61,11 +61,11 @@ protected:
 
     bool getWithBlock(T & a) {
         std::unique_lock<std::mutex> lck(m_mutex);
-        if (m_stop) {
-            return false;
-        }
-
         while (m_list.empty()) {
+            if (m_stop) {
+                return false;
+            }
+
             m_cond.wait(lck);
         }
         a = m_list.front();
