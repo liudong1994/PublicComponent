@@ -47,7 +47,7 @@ int main()
 
     // Recv Msg
     std::vector<std::string> vecRecvMsg;
-    iRet = objRabbitmq.Consumer(strQueuename, vecRecvMsg, 2);
+    iRet = objRabbitmq.Consume(strQueuename, vecRecvMsg, 2);
     printf("Rabbitmq Consumer Ret: %d\n", iRet);
 
     for (size_t i=0; i<vecRecvMsg.size(); ++i) {

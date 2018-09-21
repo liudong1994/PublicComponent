@@ -207,7 +207,7 @@ int CRabbitmqClient::Publish(const string &strMessage, const string &strExchange
     return 0;
 }
 
-int CRabbitmqClient::Consumer(const string &strQueueName, vector<string> &message_array, int GetNum, struct timeval *timeout) {
+int CRabbitmqClient::Consume(const string &strQueueName, vector<string> &message_array, int GetNum, struct timeval *timeout) {
     if (NULL == m_pConn) {
         fprintf(stderr, "Consumer m_pConn is null, Consumer failed\n");
         return -1;
@@ -263,7 +263,7 @@ int CRabbitmqClient::Consumer(const string &strQueueName, vector<string> &messag
     return 0;
 }
 
-int CRabbitmqClient::ConsumerNeedAck(const string &strQueueName, string &strMessage, uint64_t &ullAckTag, struct timeval *timeout) {
+int CRabbitmqClient::ConsumeNeedAck(const string &strQueueName, string &strMessage, uint64_t &ullAckTag, struct timeval *timeout) {
     if (NULL == m_pConn) {
         fprintf(stderr, "Consumer m_pConn is null, Consumer failed\n");
         return -1;
