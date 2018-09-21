@@ -92,9 +92,9 @@ int CRabbitmqClient::QueueDeclare(const string &strQueueName) {
     amqp_channel_open(m_pConn, m_iChannel);
     amqp_bytes_t _queue = amqp_cstring_bytes(strQueueName.c_str());
     int32_t _passive = 0;
-    int32_t _durable = 0; 
-    int32_t _exclusive = 0;
-    int32_t _auto_delete = 1;
+    int32_t _durable = 0;           // 队列是否持久化
+    int32_t _exclusive = 0;         // 当连接不在时 是否自动删除queue
+    int32_t _auto_delete = 0;       // 没有消费者时 是否自动删除queue
     amqp_queue_declare(m_pConn, m_iChannel, _queue, _passive, _durable, _exclusive, _auto_delete, amqp_empty_table);
     if (0 != ErrorMsg(amqp_get_rpc_reply(m_pConn), "queue_declare")) {
         amqp_channel_close(m_pConn, m_iChannel, AMQP_REPLY_SUCCESS);
@@ -220,7 +220,7 @@ int CRabbitmqClient::Consumer(const string &strQueueName, vector<string> &messag
     }
 
     amqp_basic_qos(m_pConn, m_iChannel, 0, GetNum, 0);
-    int ack = 1; // no_ack    是否需要确认消息后再从队列中删除消息
+    int ack = 0; // no_ack    是否需要确认消息后再从队列中删除消息(0-不需要确认 1-需要确认)
     amqp_bytes_t queuename= amqp_cstring_bytes(strQueueName.c_str());
     amqp_basic_consume(m_pConn, m_iChannel, queuename, amqp_empty_bytes, 0, ack, 0, amqp_empty_table);
 
