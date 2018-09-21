@@ -220,7 +220,7 @@ int CRabbitmqClient::Consumer(const string &strQueueName, vector<string> &messag
     }
 
     amqp_basic_qos(m_pConn, m_iChannel, 0, GetNum, 0);
-    int ack = 0; // no_ack    是否需要确认消息后再从队列中删除消息(0-不需要确认 1-需要确认)
+    int ack = 0; // no_ack    是否需要确认消息后再从队列中删除消息(0-需要确认 1-不需要确认)
     amqp_bytes_t queuename= amqp_cstring_bytes(strQueueName.c_str());
     amqp_basic_consume(m_pConn, m_iChannel, queuename, amqp_empty_bytes, 0, ack, 0, amqp_empty_table);
 
@@ -259,6 +259,69 @@ int CRabbitmqClient::Consumer(const string &strQueueName, vector<string> &messag
         usleep(1);
     }
 
+    amqp_channel_close(m_pConn, m_iChannel, AMQP_REPLY_SUCCESS);
+    return 0;
+}
+
+int CRabbitmqClient::ConsumerNeedAck(const string &strQueueName, string &strMessage, uint64_t &ullAckTag, struct timeval *timeout) {
+    if (NULL == m_pConn) {
+        fprintf(stderr, "Consumer m_pConn is null, Consumer failed\n");
+        return -1;
+    }
+
+    amqp_channel_open(m_pConn, m_iChannel);
+    if (0 != ErrorMsg(amqp_get_rpc_reply(m_pConn), "open channel")) {
+        amqp_channel_close(m_pConn, m_iChannel, AMQP_REPLY_SUCCESS);
+        return -2;
+    }
+
+    amqp_basic_qos(m_pConn, m_iChannel, 0, 1, 0);
+    int ack = 0; // no_ack    是否需要确认消息后再从队列中删除消息(0-需要确认 1-不需要确认)
+    amqp_bytes_t queuename = amqp_cstring_bytes(strQueueName.c_str());
+    amqp_basic_consume(m_pConn, m_iChannel, queuename, amqp_empty_bytes, 0, ack, 0, amqp_empty_table);
+
+    if (0 != ErrorMsg(amqp_get_rpc_reply(m_pConn), "Consuming")) {
+        amqp_channel_close(m_pConn, m_iChannel, AMQP_REPLY_SUCCESS);
+        return -3;
+    }
+
+    amqp_envelope_t envelope;
+    amqp_maybe_release_buffers(m_pConn);
+    amqp_rpc_reply_t res = amqp_consume_message(m_pConn, &envelope, timeout, 0);
+    if (AMQP_RESPONSE_NORMAL != res.reply_type) {
+        fprintf(stderr, "Consumer amqp_channel_close failed\n");
+        amqp_channel_close(m_pConn, m_iChannel, AMQP_REPLY_SUCCESS);
+
+        return -res.reply_type;
+    }
+
+    ullAckTag = envelope.delivery_tag;
+    strMessage.assign((char *)envelope.message.body.bytes, (char *)envelope.message.body.bytes + envelope.message.body.len);
+
+    amqp_destroy_envelope(&envelope);
+    amqp_channel_close(m_pConn, m_iChannel, AMQP_REPLY_SUCCESS);
+    return 0;
+}
+
+int CRabbitmqClient::ConsumeAck(uint64_t ullAckTag) {
+    if (NULL == m_pConn) {
+        fprintf(stderr, "Consumer m_pConn is null, Consumer failed\n");
+        return -1;
+    }
+
+    amqp_channel_open(m_pConn, m_iChannel);
+    if (0 != ErrorMsg(amqp_get_rpc_reply(m_pConn), "open channel")) {
+        amqp_channel_close(m_pConn, m_iChannel, AMQP_REPLY_SUCCESS);
+        return -2;
+    }
+
+    int rtn = amqp_basic_ack(m_pConn, m_iChannel, ullAckTag, 1);
+    if (rtn != 0) {
+        amqp_channel_close(m_pConn, m_iChannel, AMQP_REPLY_SUCCESS);
+        return -4;
+    }
+
+    amqp_channel_close(m_pConn, m_iChannel, AMQP_REPLY_SUCCESS);
     return 0;
 }
 

@@ -76,13 +76,29 @@ public:
     /** 
 	* @brief consumer  消费消息
 	* @param [in]  strQueueName         队列名称
-	* @param [out] message_array        获取的消息实体
+	* @param [out] message_array        获取的消息实体数组
     * @param [int] GetNum               需要取得的消息个数
 	* @param [int] timeout              取得的消息是延迟，若为NULL，表示持续取，无延迟，阻塞状态
 	* @return 等于0值代表成功，小于0代表错误，错误信息从ErrorReturn返回
 	*/
     int Consumer(const string &strQueueName, vector<string> &message_array, int GetNum = 1, struct timeval *timeout = NULL);
 
+    /** 
+	* @brief consumer  消费一条消息 需要确认
+	* @param [in]  strQueueName         队列名称
+	* @param [out] strMessage           获取的消息实体
+    * @param [uint64_t] ullAckTag       确认消息时需要的tag
+	* @param [int] timeout              取得的消息是延迟，若为NULL，表示持续取，无延迟，阻塞状态
+	* @return 等于0值代表成功，小于0代表错误，错误信息从ErrorReturn返回
+	*/
+    int ConsumerNeedAck(const string &strQueueName, string &strMessage, uint64_t &ullAckTag, struct timeval *timeout);
+
+    /** 
+	* @brief consumer  确认消息
+	* @param [uint64_t] ullAckTag       确认消息时需要的tag
+	* @return 等于0值代表成功，小于0代表错误，错误信息从ErrorReturn返回
+	*/
+    int ConsumeAck(uint64_t ullAckTag);
 
 private:
     CRabbitmqClient(const CRabbitmqClient & rh);
