@@ -291,7 +291,6 @@ int CRabbitmqClient::ConsumeNeedAck(const string &strQueueName, string &strMessa
     if (AMQP_RESPONSE_NORMAL != res.reply_type) {
         fprintf(stderr, "Consumer amqp_channel_close failed\n");
         amqp_channel_close(m_pConn, m_iChannel, AMQP_REPLY_SUCCESS);
-
         return -res.reply_type;
     }
 
@@ -299,26 +298,26 @@ int CRabbitmqClient::ConsumeNeedAck(const string &strQueueName, string &strMessa
     strMessage.assign((char *)envelope.message.body.bytes, (char *)envelope.message.body.bytes + envelope.message.body.len);
 
     amqp_destroy_envelope(&envelope);
-    amqp_channel_close(m_pConn, m_iChannel, AMQP_REPLY_SUCCESS);
+    //amqp_channel_close(m_pConn, m_iChannel, AMQP_REPLY_SUCCESS);  ConsumeAck中进行确认后进行通道关闭
     return 0;
 }
 
-int CRabbitmqClient::ConsumeAck(uint64_t ullAckTag) {
+int CRabbitmqClient::ConsumeAck(int iConsumeRet, uint64_t ullAckTag) {
     if (NULL == m_pConn) {
         fprintf(stderr, "Consumer m_pConn is null, Consumer failed\n");
         return -1;
     }
 
-    amqp_channel_open(m_pConn, m_iChannel);
-    if (0 != ErrorMsg(amqp_get_rpc_reply(m_pConn), "open channel")) {
-        amqp_channel_close(m_pConn, m_iChannel, AMQP_REPLY_SUCCESS);
+    if (iConsumeRet != 0) {
+        fprintf(stderr, "Consume Ret: %d failed\n", iConsumeRet);
         return -2;
     }
-
+    
     int rtn = amqp_basic_ack(m_pConn, m_iChannel, ullAckTag, 1);
     if (rtn != 0) {
+        fprintf(stderr, "ConsumeAck amqp_basic_ack failed\n");
         amqp_channel_close(m_pConn, m_iChannel, AMQP_REPLY_SUCCESS);
-        return -4;
+        return -3;
     }
 
     amqp_channel_close(m_pConn, m_iChannel, AMQP_REPLY_SUCCESS);

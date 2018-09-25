@@ -90,15 +90,17 @@ public:
     * @param [uint64_t] ullAckTag       确认消息时需要的tag
 	* @param [int] timeout              取得的消息是延迟，若为NULL，表示持续取，无延迟，阻塞状态
 	* @return 等于0值代表成功，小于0代表错误，错误信息从ErrorReturn返回
+    * @warn  调用完成后 需要调用ConsumeAck(...) 确认以及释放资源
 	*/
-    int ConsumeNeedAck(const string &strQueueName, string &strMessage, uint64_t &ullAckTag, struct timeval *timeout);
+    int ConsumeNeedAck(const string &strQueueName, string &strMessage, uint64_t &ullAckTag, struct timeval *timeout = NULL);
 
     /** 
 	* @brief ConsumeAck  确认消息
+    * @param [int]      iConsumeRet     ConsumeNeedAck函数的返回值
 	* @param [uint64_t] ullAckTag       确认消息时需要的tag
 	* @return 等于0值代表成功，小于0代表错误，错误信息从ErrorReturn返回
 	*/
-    int ConsumeAck(uint64_t ullAckTag);
+    int ConsumeAck(int iConsumeRet, uint64_t ullAckTag);
 
 private:
     CRabbitmqClient(const CRabbitmqClient & rh);

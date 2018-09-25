@@ -45,6 +45,8 @@ int main()
     iRet = objRabbitmq.Publish(strSendMsg2, strExchange, strRoutekey);
     printf("Rabbitmq Publish 2 Ret: %d\n", iRet);
 
+
+#if 0
     // Recv Msg
     std::vector<std::string> vecRecvMsg;
     iRet = objRabbitmq.Consume(strQueuename, vecRecvMsg, 2);
@@ -53,6 +55,17 @@ int main()
     for (size_t i=0; i<vecRecvMsg.size(); ++i) {
         printf("Consumer: %s\n", vecRecvMsg[i].c_str());
     }
+#else
+    while(1) {
+        // Recv Msg
+        std::string strRecvMsg;
+        uint64_t llAcktag = 0;
+        iRet = objRabbitmq.ConsumeNeedAck(strQueuename, strRecvMsg, llAcktag);
+        printf("Rabbitmq Consumer Ret: %d  Tag: %lu  Msg: %s\n", iRet, llAcktag, strRecvMsg.c_str());
+        iRet = objRabbitmq.ConsumeAck(iRet, llAcktag);
+    }
+
+#endif
 
     objRabbitmq.Disconnect();
     return 0;
