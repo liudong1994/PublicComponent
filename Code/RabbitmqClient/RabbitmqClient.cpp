@@ -32,6 +32,7 @@ int CRabbitmqClient::Connect(const string &strHostname, int iPort, const string 
         return -1;
     }
 
+    // ToDo 一个m_pConn支持多个通道吗
     m_pSock =  amqp_tcp_socket_new(m_pConn);
     if (NULL == m_pSock) {
         fprintf(stderr, "amqp tcp new socket failed\n");
@@ -39,7 +40,7 @@ int CRabbitmqClient::Connect(const string &strHostname, int iPort, const string 
     }
 
     int status = amqp_socket_open(m_pSock, m_strHostname.c_str(), m_iPort);
-    if (status<0) {
+    if (status < 0) {
         fprintf(stderr, "amqp socket open failed\n");
         return -3;
     }
@@ -221,7 +222,7 @@ int CRabbitmqClient::Consume(const string &strQueueName, vector<string> &message
 
     amqp_basic_qos(m_pConn, m_iChannel, 0, GetNum, 0);
     int ack = 0; // no_ack    是否需要确认消息后再从队列中删除消息(0-需要确认 1-不需要确认)
-    amqp_bytes_t queuename= amqp_cstring_bytes(strQueueName.c_str());
+    amqp_bytes_t queuename = amqp_cstring_bytes(strQueueName.c_str());
     amqp_basic_consume(m_pConn, m_iChannel, queuename, amqp_empty_bytes, 0, ack, 0, amqp_empty_table);
 
     if (0 != ErrorMsg(amqp_get_rpc_reply(m_pConn), "Consuming")) {
@@ -321,6 +322,89 @@ int CRabbitmqClient::ConsumeAck(int iConsumeRet, uint64_t ullAckTag) {
     }
 
     amqp_channel_close(m_pConn, m_iChannel, AMQP_REPLY_SUCCESS);
+    return 0;
+}
+
+int CRabbitmqClient::ConsumeThread(const string &strQueueName, FUNC_MSG_CALLBACK fnMsgCallback, struct timeval *timeout) {
+    if (0 != OpenChannel(strQueueName)) {
+        fprintf(stderr, "ConsumeThread OpenChannel failed\n");
+        return -1;
+    }
+
+    bool bReOpenChannel = false;
+    amqp_rpc_reply_t res;
+    amqp_envelope_t envelope;
+
+    while (1) {         // ToDo bStop
+        if (bReOpenChannel) {
+            if (0 != OpenChannel(strQueueName)) {
+                fprintf(stderr, "ConsumeThread ReOpenChannel failed\n");
+                usleep(1000);
+                continue;
+            }
+
+            bReOpenChannel = false;
+            fprintf(stderr, "ConsumeThread ReOpenChannel success\n");
+        }
+
+
+        amqp_maybe_release_buffers(m_pConn);
+        res = amqp_consume_message(m_pConn, &envelope, timeout, 0);
+        if (AMQP_RESPONSE_NORMAL != res.reply_type) {
+            fprintf(stderr, "Consumer amqp_consume_message failed\n");
+            bReOpenChannel = true;
+            amqp_channel_close(m_pConn, m_iChannel, AMQP_REPLY_SUCCESS);
+            continue;
+        }
+
+        string strMsg((char *)envelope.message.body.bytes, (char *)envelope.message.body.bytes + envelope.message.body.len);
+        amqp_destroy_envelope(&envelope);
+        int iRet = fnMsgCallback(strMsg);
+        if (0 != iRet) {
+            fprintf(stderr, "Consumer Msg Callback Failed\n");
+            continue;
+        }
+
+        int rtn = amqp_basic_ack(m_pConn, m_iChannel, envelope.delivery_tag, 1);
+        if (rtn != 0) {
+            fprintf(stderr, "Consumer amqp_basic_ack failed\n");
+            bReOpenChannel = true;
+            amqp_channel_close(m_pConn, m_iChannel, AMQP_REPLY_SUCCESS);
+            continue;
+        }
+
+    }
+
+    amqp_channel_close(m_pConn, m_iChannel, AMQP_REPLY_SUCCESS);
+    return 0;
+}
+
+int CRabbitmqClient::OpenChannel(const string &strQueueName, int iGetNum) {
+    if (NULL == m_pConn) {
+        fprintf(stderr, "Consumer m_pConn is null, Consumer failed\n");
+        return -1;
+    }
+
+    amqp_channel_open(m_pConn, m_iChannel);
+    if (0 != ErrorMsg(amqp_get_rpc_reply(m_pConn), "open channel")) {
+        amqp_channel_close(m_pConn, m_iChannel, AMQP_REPLY_SUCCESS);
+        return -2;
+    }
+
+    // ToDo 测试
+    if (-1 != iGetNum) {
+        amqp_basic_qos(m_pConn, m_iChannel, 0, iGetNum, 0);
+    }
+
+    int ack = 0; // no_ack    是否需要确认消息后再从队列中删除消息(0-需要确认 1-不需要确认)
+    amqp_bytes_t queuename = amqp_cstring_bytes(strQueueName.c_str());
+    amqp_basic_consume(m_pConn, m_iChannel, queuename, amqp_empty_bytes, 0, ack, 0, amqp_empty_table);
+
+    if (0 != ErrorMsg(amqp_get_rpc_reply(m_pConn), "Consuming")) {
+        amqp_channel_close(m_pConn, m_iChannel, AMQP_REPLY_SUCCESS);
+        return -3;
+    }
+
     return 0;
 }
 

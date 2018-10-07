@@ -9,6 +9,9 @@
 using std::string;
 using std::vector;
 
+
+typedef int (*FUNC_MSG_CALLBACK) (const string &strMsg);
+
 class CRabbitmqClient{
 public:
     CRabbitmqClient();
@@ -102,13 +105,19 @@ public:
 	*/
     int ConsumeAck(int iConsumeRet, uint64_t ullAckTag);
 
+
+    int ConsumeThread(const string &strQueueName, FUNC_MSG_CALLBACK fnMsgCallback, struct timeval *timeout = NULL);
+
 private:
     CRabbitmqClient(const CRabbitmqClient & rh);
     void operator=(const CRabbitmqClient & rh);
 
+    int OpenChannel(const string &strQueueName, int iGetNum = -1);
+
     int ErrorMsg(amqp_rpc_reply_t x, char const *context);
 
 
+private:
     string                      m_strHostname;      // amqpÖ÷»ú
     int                         m_iPort;            // amqp¶Ë¿Ú
     string					    m_strUser;
