@@ -38,7 +38,6 @@ int CRabbitmqClient::Connect(const string &strHostname, int iPort, const string 
         return -1;
     }
 
-    // ToDo 一个m_pConn支持多个通道吗
     m_pSock =  amqp_tcp_socket_new(m_pConn);
     if (NULL == m_pSock) {
         fprintf(stderr, "amqp tcp new socket failed\n");
