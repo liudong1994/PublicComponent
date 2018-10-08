@@ -71,9 +71,9 @@ int main()
 #else
     // Recv Msg
     objRabbitmq.ConsumeTHREAD(strQueuename, MsgCallback);
+    sleep(20);
 #endif
 
-    sleep(20);
     return 0;
 }
 
