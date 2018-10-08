@@ -7,6 +7,8 @@
 #include "RabbitmqClient.h"
 
 
+int MsgCallback(const std::string &strMsg);
+
 int main()
 {
     CRabbitmqClient objRabbitmq;
@@ -22,9 +24,10 @@ int main()
 
     
     std::string strExchange = "ExchangeTest";
-    std::string strRoutekey = "routekeyTest";
-    std::string strQueuename = "queueTest";
+    std::string strRoutekey = "routekeyTest6";
+    std::string strQueuename = "queueTest6";
 
+#if 0
     // ¿ÉÑ¡²Ù×÷ Declare Exchange
     iRet = objRabbitmq.ExchangeDeclare(strExchange, "direct");
     printf("Rabbitmq ExchangeDeclare Ret: %d\n", iRet);
@@ -44,6 +47,7 @@ int main()
     printf("Rabbitmq Publish 1 Ret: %d\n", iRet);
     iRet = objRabbitmq.Publish(strSendMsg2, strExchange, strRoutekey);
     printf("Rabbitmq Publish 2 Ret: %d\n", iRet);
+#endif
 
 
 #if 0
@@ -55,7 +59,7 @@ int main()
     for (size_t i=0; i<vecRecvMsg.size(); ++i) {
         printf("Consumer: %s\n", vecRecvMsg[i].c_str());
     }
-#else
+#elif 0
     while(1) {
         // Recv Msg
         std::string strRecvMsg;
@@ -64,10 +68,19 @@ int main()
         printf("Rabbitmq Consumer Ret: %d  Tag: %lu  Msg: %s\n", iRet, llAcktag, strRecvMsg.c_str());
         iRet = objRabbitmq.ConsumeAck(iRet, llAcktag);
     }
-
+#else
+    // Recv Msg
+    objRabbitmq.ConsumeThread(strQueuename, MsgCallback);
 #endif
 
+    //sleep(20);
+
+    objRabbitmq.SetConsumeThreadRunStatus(false);
     objRabbitmq.Disconnect();
+    return 0;
+}
+
+int MsgCallback(const std::string &strMsg) {
     return 0;
 }
 

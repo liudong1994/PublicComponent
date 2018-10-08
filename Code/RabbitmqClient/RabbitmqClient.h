@@ -38,10 +38,10 @@ public:
     int QueueDeclare(const string &strQueueName);
 
     /**
-	*   @brief       QueueBind                        将队列，交换机和绑定规则绑定起来形成一个路由表
-	*	@param       [in]               strQueueName  消息队列
-	*	@param       [in]               strExchange   交换机名称
-	*	@param       [in]               strBindKey    路由名称  “msg.#” “msg.weather.**”
+	*   @brief       QueueBind                      将队列，交换机和绑定规则绑定起来形成一个路由表
+	*	@param       [in]           strQueueName    消息队列
+	*	@param       [in]           strExchange     交换机名称
+	*	@param       [in]           strBindKey      路由名称  “msg.#” “msg.weather.**”
     *   @return 等于0值代表成功绑定，小于0代表错误
 	*/
     int QueueBind(const string &strQueueName, const string &strExchange, const string &strBindKey);
@@ -56,18 +56,18 @@ public:
     int QueueUnbind(const string &strQueueName, const string &strExchange, const string &strBindKey);
 
     /**
-	*   @brief       QueueDelete                      删除消息队列。
-	*	@param       [in]               strQueueName  消息队列名称
-	*	@param       [in]               iIfUnused     消息队列是否在用，1 则论是否在用都删除
+	*   @brief       QueueDelete                    删除消息队列。
+	*	@param       [in]           strQueueName    消息队列名称
+	*	@param       [in]           iIfUnused       消息队列是否在用，1 则论是否在用都删除
 	*   @return 等于0值代表成功删除queue，小于0代表错误
 	*/
     int QueueDelete(const string &strQueueName, int iIfUnused);
 
     /**
 	* @brief Publish  发布消息
-	* @param [in] strMessage        消息实体
-    * @param [in] strExchange       交换器
-	* @param [in] strRoutekey       路由规则 
+	* @param [in]   strMessage        消息实体
+    * @param [in]   strExchange       交换器
+	* @param [in]   strRoutekey       路由规则 
     *   1.Direct Exchange – 处理路由键。需要将一个队列绑定到交换机上，要求该消息与一个特定的路由键完全匹配。
     *   2.Fanout Exchange – 不处理路由键。将队列绑定到交换机上。一个发送到交换机的消息都会被转发到与该交换机绑定的所有队列上。
 	*   3.Topic Exchange – 将路由键和某模式进行匹配。此时队列需要绑定要一个模式上。符号“#”匹配一个或多个词，符号“*”匹配不多不少一个词。
@@ -78,20 +78,20 @@ public:
 
     /** 
 	* @brief Consumer  消费消息
-	* @param [in]  strQueueName         队列名称
-	* @param [out] message_array        获取的消息实体数组
-    * @param [int] GetNum               需要取得的消息个数
-	* @param [int] timeout              取得的消息是延迟，若为NULL，表示持续取，无延迟，阻塞状态
+	* @param [in]   strQueueName         队列名称
+	* @param [out]  message_array        获取的消息实体数组
+    * @param [in]   GetNum               需要取得的消息个数
+	* @param [in]   timeout              取得的消息是延迟，若为NULL，表示持续取，无延迟，阻塞状态
 	* @return 等于0值代表成功，小于0代表错误，错误信息从ErrorReturn返回
 	*/
     int Consume(const string &strQueueName, vector<string> &message_array, int GetNum = 1, struct timeval *timeout = NULL);
 
     /** 
 	* @brief ConsumerNeedAck  消费一条消息 需要确认
-	* @param [in]  strQueueName         队列名称
-	* @param [out] strMessage           获取的消息实体
-    * @param [uint64_t] ullAckTag       确认消息时需要的tag
-	* @param [int] timeout              取得的消息是延迟，若为NULL，表示持续取，无延迟，阻塞状态
+	* @param [in]   strQueueName        队列名称
+	* @param [out]  strMessage          获取的消息实体
+    * @param [in]   ullAckTag           确认消息时需要的tag
+	* @param [in]   timeout             取得的消息是延迟，若为NULL，表示持续取，无延迟，阻塞状态
 	* @return 等于0值代表成功，小于0代表错误，错误信息从ErrorReturn返回
     * @warn  调用完成后 需要调用ConsumeAck(...) 确认以及释放资源
 	*/
@@ -99,21 +99,27 @@ public:
 
     /** 
 	* @brief ConsumeAck  确认消息
-    * @param [int]      iConsumeRet     ConsumeNeedAck函数的返回值
-	* @param [uint64_t] ullAckTag       确认消息时需要的tag
+    * @param [in]       iConsumeRet     ConsumeNeedAck函数的返回值
+	* @param [in]       ullAckTag       确认消息时需要的tag
 	* @return 等于0值代表成功，小于0代表错误，错误信息从ErrorReturn返回
 	*/
     int ConsumeAck(int iConsumeRet, uint64_t ullAckTag);
 
+    /** 
+	* @brief ConsumeThread  循环接收消息
+    * @param [in]   strQueueName        队列名称
+    * @param [in]   fnMsgCallback       获取消息成功时的消息回调处理函数
+    * @param [in]   timeout             取得的消息是延迟，若为NULL，表示持续取，无延迟，阻塞状态
+	*/
+    void ConsumeThread(const string &strQueueName, FUNC_MSG_CALLBACK fnMsgCallback, struct timeval *timeout = NULL);
 
-    int ConsumeThread(const string &strQueueName, FUNC_MSG_CALLBACK fnMsgCallback, struct timeval *timeout = NULL);
+    void SetConsumeThreadRunStatus(bool bRun) { m_bThreadRun = bRun; }
 
 private:
     CRabbitmqClient(const CRabbitmqClient & rh);
     void operator=(const CRabbitmqClient & rh);
 
     int OpenChannel(const string &strQueueName, int iGetNum = -1);
-
     int ErrorMsg(amqp_rpc_reply_t x, char const *context);
 
 
@@ -126,6 +132,12 @@ private:
 
     amqp_socket_t               *m_pSock;        
     amqp_connection_state_t     m_pConn;
+
+
+private:
+    bool                        m_bThreadRun;
+
+
 };
 
 #endif

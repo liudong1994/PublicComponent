@@ -9,7 +9,8 @@ CRabbitmqClient::CRabbitmqClient()
 , m_strPasswd("")
 , m_iChannel(1) //默认用1号通道，通道无所谓 
 , m_pSock(NULL)
-, m_pConn(NULL) {
+, m_pConn(NULL)
+, m_bThreadRun(false) {
 
 }
 
@@ -209,25 +210,9 @@ int CRabbitmqClient::Publish(const string &strMessage, const string &strExchange
 }
 
 int CRabbitmqClient::Consume(const string &strQueueName, vector<string> &message_array, int GetNum, struct timeval *timeout) {
-    if (NULL == m_pConn) {
-        fprintf(stderr, "Consumer m_pConn is null, Consumer failed\n");
+    if(0 != OpenChannel(strQueueName, GetNum)) {
+        fprintf(stderr, "Consume OpenChannel failed\n");
         return -1;
-    }
-
-    amqp_channel_open(m_pConn, m_iChannel);
-    if (0 != ErrorMsg(amqp_get_rpc_reply(m_pConn), "open channel")) {
-        amqp_channel_close(m_pConn, m_iChannel, AMQP_REPLY_SUCCESS);
-        return -2;
-    }
-
-    amqp_basic_qos(m_pConn, m_iChannel, 0, GetNum, 0);
-    int ack = 0; // no_ack    是否需要确认消息后再从队列中删除消息(0-需要确认 1-不需要确认)
-    amqp_bytes_t queuename = amqp_cstring_bytes(strQueueName.c_str());
-    amqp_basic_consume(m_pConn, m_iChannel, queuename, amqp_empty_bytes, 0, ack, 0, amqp_empty_table);
-
-    if (0 != ErrorMsg(amqp_get_rpc_reply(m_pConn), "Consuming")) {
-        amqp_channel_close(m_pConn, m_iChannel, AMQP_REPLY_SUCCESS);
-        return -3;
     }
 
     int hasget = 0;
@@ -265,25 +250,9 @@ int CRabbitmqClient::Consume(const string &strQueueName, vector<string> &message
 }
 
 int CRabbitmqClient::ConsumeNeedAck(const string &strQueueName, string &strMessage, uint64_t &ullAckTag, struct timeval *timeout) {
-    if (NULL == m_pConn) {
-        fprintf(stderr, "Consumer m_pConn is null, Consumer failed\n");
+    if(0 != OpenChannel(strQueueName, 1)) {
+        fprintf(stderr, "ConsumeNeedAck OpenChannel failed\n");
         return -1;
-    }
-
-    amqp_channel_open(m_pConn, m_iChannel);
-    if (0 != ErrorMsg(amqp_get_rpc_reply(m_pConn), "open channel")) {
-        amqp_channel_close(m_pConn, m_iChannel, AMQP_REPLY_SUCCESS);
-        return -2;
-    }
-
-    amqp_basic_qos(m_pConn, m_iChannel, 0, 1, 0);
-    int ack = 0; // no_ack    是否需要确认消息后再从队列中删除消息(0-需要确认 1-不需要确认)
-    amqp_bytes_t queuename = amqp_cstring_bytes(strQueueName.c_str());
-    amqp_basic_consume(m_pConn, m_iChannel, queuename, amqp_empty_bytes, 0, ack, 0, amqp_empty_table);
-
-    if (0 != ErrorMsg(amqp_get_rpc_reply(m_pConn), "Consuming")) {
-        amqp_channel_close(m_pConn, m_iChannel, AMQP_REPLY_SUCCESS);
-        return -3;
     }
 
     amqp_envelope_t envelope;
@@ -325,50 +294,53 @@ int CRabbitmqClient::ConsumeAck(int iConsumeRet, uint64_t ullAckTag) {
     return 0;
 }
 
-int CRabbitmqClient::ConsumeThread(const string &strQueueName, FUNC_MSG_CALLBACK fnMsgCallback, struct timeval *timeout) {
-    if (0 != OpenChannel(strQueueName)) {
-        fprintf(stderr, "ConsumeThread OpenChannel failed\n");
-        return -1;
-    }
+void CRabbitmqClient::ConsumeThread(const string &strQueueName, FUNC_MSG_CALLBACK fnMsgCallback, struct timeval *timeout) {
+    bool bOpenChannel = true;
+    m_bThreadRun = true;
 
-    bool bReOpenChannel = false;
-    amqp_rpc_reply_t res;
-    amqp_envelope_t envelope;
-
-    while (1) {         // ToDo bStop
-        if (bReOpenChannel) {
+    while (m_bThreadRun) {
+        if (bOpenChannel) {
             if (0 != OpenChannel(strQueueName)) {
-                fprintf(stderr, "ConsumeThread ReOpenChannel failed\n");
-                usleep(1000);
+                fprintf(stderr, "ConsumeThread OpenChannel failed\n");
+                sleep(1);
                 continue;
             }
 
-            bReOpenChannel = false;
-            fprintf(stderr, "ConsumeThread ReOpenChannel success\n");
+            bOpenChannel = false;
+            fprintf(stderr, "ConsumeThread OpenChannel success\n");
         }
 
+        amqp_envelope_t envelope;
 
         amqp_maybe_release_buffers(m_pConn);
-        res = amqp_consume_message(m_pConn, &envelope, timeout, 0);
+        amqp_rpc_reply_t res = amqp_consume_message(m_pConn, &envelope, timeout, 0);
         if (AMQP_RESPONSE_NORMAL != res.reply_type) {
             fprintf(stderr, "Consumer amqp_consume_message failed\n");
-            bReOpenChannel = true;
+            bOpenChannel = true;
             amqp_channel_close(m_pConn, m_iChannel, AMQP_REPLY_SUCCESS);
             continue;
         }
 
         string strMsg((char *)envelope.message.body.bytes, (char *)envelope.message.body.bytes + envelope.message.body.len);
-        amqp_destroy_envelope(&envelope);
-        int iRet = fnMsgCallback(strMsg);
-        if (0 != iRet) {
-            fprintf(stderr, "Consumer Msg Callback Failed\n");
-            continue;
+        fprintf(stderr, "delivery_tag:%lu start process\ncontent:%s\n", envelope.delivery_tag, strMsg.c_str());
+        
+        // 交给客户端处理消息数据
+        while(m_bThreadRun) {
+            int iRet = fnMsgCallback(strMsg);
+            if (0 == iRet) {
+                fprintf(stderr, "delivery_tag:%lu process success\n", envelope.delivery_tag);
+                break;
+            }
+
+            fprintf(stderr, "delivery_tag:%lu process failed %d\n", envelope.delivery_tag, iRet);
+            sleep(1);
         }
 
         int rtn = amqp_basic_ack(m_pConn, m_iChannel, envelope.delivery_tag, 1);
+        amqp_destroy_envelope(&envelope);
         if (rtn != 0) {
             fprintf(stderr, "Consumer amqp_basic_ack failed\n");
-            bReOpenChannel = true;
+            bOpenChannel = true;
             amqp_channel_close(m_pConn, m_iChannel, AMQP_REPLY_SUCCESS);
             continue;
         }
@@ -376,7 +348,7 @@ int CRabbitmqClient::ConsumeThread(const string &strQueueName, FUNC_MSG_CALLBACK
     }
 
     amqp_channel_close(m_pConn, m_iChannel, AMQP_REPLY_SUCCESS);
-    return 0;
+    return ;
 }
 
 int CRabbitmqClient::OpenChannel(const string &strQueueName, int iGetNum) {
@@ -391,7 +363,6 @@ int CRabbitmqClient::OpenChannel(const string &strQueueName, int iGetNum) {
         return -2;
     }
 
-    // ToDo 测试
     if (-1 != iGetNum) {
         amqp_basic_qos(m_pConn, m_iChannel, 0, iGetNum, 0);
     }
