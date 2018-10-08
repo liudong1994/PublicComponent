@@ -70,17 +70,15 @@ int main()
     }
 #else
     // Recv Msg
-    objRabbitmq.ConsumeThread(strQueuename, MsgCallback);
+    objRabbitmq.ConsumeTHREAD(strQueuename, MsgCallback);
 #endif
 
-    //sleep(20);
-
-    objRabbitmq.SetConsumeThreadRunStatus(false);
-    objRabbitmq.Disconnect();
+    sleep(20);
     return 0;
 }
 
 int MsgCallback(const std::string &strMsg) {
+    printf("Rabbitmq Recv: %s\n", strMsg.c_str());
     return 0;
 }
 

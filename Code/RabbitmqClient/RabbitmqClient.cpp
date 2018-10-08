@@ -15,6 +15,11 @@ CRabbitmqClient::CRabbitmqClient()
 }
 
 CRabbitmqClient::~CRabbitmqClient() {
+    if (m_bThreadRun) {
+        m_bThreadRun = false;
+        m_thConsume.join();
+    }
+
     if (NULL != m_pConn) {
         Disconnect();  
         m_pConn = NULL;
@@ -322,7 +327,7 @@ void CRabbitmqClient::ConsumeThread(const string &strQueueName, FUNC_MSG_CALLBAC
         }
 
         string strMsg((char *)envelope.message.body.bytes, (char *)envelope.message.body.bytes + envelope.message.body.len);
-        fprintf(stderr, "delivery_tag:%lu start process\ncontent:%s\n", envelope.delivery_tag, strMsg.c_str());
+        fprintf(stderr, "delivery_tag:%lu start process\n", envelope.delivery_tag);
         
         // 交给客户端处理消息数据
         while(m_bThreadRun) {

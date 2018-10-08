@@ -4,10 +4,12 @@
 
 #include <string>
 #include <vector>
+#include <thread>
 #include "amqp_tcp_socket.h"
 
 using std::string;
 using std::vector;
+using std::thread;
 
 
 typedef int (*FUNC_MSG_CALLBACK) (const string &strMsg);
@@ -111,15 +113,19 @@ public:
     * @param [in]   fnMsgCallback       获取消息成功时的消息回调处理函数
     * @param [in]   timeout             取得的消息是延迟，若为NULL，表示持续取，无延迟，阻塞状态
 	*/
-    void ConsumeThread(const string &strQueueName, FUNC_MSG_CALLBACK fnMsgCallback, struct timeval *timeout = NULL);
+    void ConsumeTHREAD(const string &strQueueName, FUNC_MSG_CALLBACK fnMsgCallback, struct timeval *timeout = NULL) {
+        m_thConsume = thread(&CRabbitmqClient::ConsumeThread, this, strQueueName, fnMsgCallback, timeout);
+    }
 
-    void SetConsumeThreadRunStatus(bool bRun) { m_bThreadRun = bRun; }
 
 private:
     CRabbitmqClient(const CRabbitmqClient & rh);
     void operator=(const CRabbitmqClient & rh);
 
     int OpenChannel(const string &strQueueName, int iGetNum = -1);
+
+    void ConsumeThread(const string &strQueueName, FUNC_MSG_CALLBACK fnMsgCallback, struct timeval *timeout);
+
     int ErrorMsg(amqp_rpc_reply_t x, char const *context);
 
 
@@ -136,8 +142,7 @@ private:
 
 private:
     bool                        m_bThreadRun;
-
-
+    thread                      m_thConsume;
 };
 
 #endif
