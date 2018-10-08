@@ -24,8 +24,8 @@ int main()
 
     
     std::string strExchange = "ExchangeTest";
-    std::string strRoutekey = "routekeyTest6";
-    std::string strQueuename = "queueTest6";
+    std::string strRoutekey = "routekeyTest";
+    std::string strQueuename = "queueTest";
 
 #if 0
     // ¿ÉÑ¡²Ù×÷ Declare Exchange
@@ -70,7 +70,7 @@ int main()
     }
 #else
     // Recv Msg
-    objRabbitmq.ConsumeTHREAD(strQueuename, MsgCallback);
+    objRabbitmq.ConsumeCycle(strQueuename, MsgCallback);
     sleep(20);
 #endif
 

@@ -16,7 +16,7 @@ typedef int (*FUNC_MSG_CALLBACK) (const string &strMsg);
 
 class CRabbitmqClient{
 public:
-    CRabbitmqClient();
+    explicit CRabbitmqClient(int iChannle = 1);
     ~CRabbitmqClient();
 
 
@@ -108,23 +108,20 @@ public:
     int ConsumeAck(int iConsumeRet, uint64_t ullAckTag);
 
     /** 
-	* @brief ConsumeThread  循环接收消息
+	* @brief ConsumeCycle  循环接收消息
     * @param [in]   strQueueName        队列名称
     * @param [in]   fnMsgCallback       获取消息成功时的消息回调处理函数
     * @param [in]   timeout             取得的消息是延迟，若为NULL，表示持续取，无延迟，阻塞状态
 	*/
-    void ConsumeTHREAD(const string &strQueueName, FUNC_MSG_CALLBACK fnMsgCallback, struct timeval *timeout = NULL) {
-        m_thConsume = thread(&CRabbitmqClient::ConsumeThread, this, strQueueName, fnMsgCallback, timeout);
-    }
+    void ConsumeCycle(const string &strQueueName, FUNC_MSG_CALLBACK fnMsgCallback, struct timeval *timeout = NULL);
 
+    void SetConsumeCycleStatus(bool bCycleRunStatus) { m_bCycleRun = bCycleRunStatus; }
 
 private:
     CRabbitmqClient(const CRabbitmqClient & rh);
     void operator=(const CRabbitmqClient & rh);
 
     int OpenChannel(const string &strQueueName, int iGetNum = -1);
-
-    void ConsumeThread(const string &strQueueName, FUNC_MSG_CALLBACK fnMsgCallback, struct timeval *timeout);
 
     int ErrorMsg(amqp_rpc_reply_t x, char const *context);
 
@@ -141,8 +138,7 @@ private:
 
 
 private:
-    bool                        m_bThreadRun;
-    thread                      m_thConsume;
+    bool                        m_bCycleRun;
 };
 
 #endif

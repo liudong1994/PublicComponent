@@ -2,23 +2,20 @@
 #include <unistd.h>
 
 
-CRabbitmqClient::CRabbitmqClient()
+CRabbitmqClient::CRabbitmqClient(int iChannle)
 : m_strHostname("") 
 , m_iPort(0)
 , m_strUser("")
 , m_strPasswd("")
-, m_iChannel(1) //默认用1号通道，通道无所谓 
+, m_iChannel(iChannle)
 , m_pSock(NULL)
 , m_pConn(NULL)
-, m_bThreadRun(false) {
+, m_bCycleRun(false) {
 
 }
 
 CRabbitmqClient::~CRabbitmqClient() {
-    if (m_bThreadRun) {
-        m_bThreadRun = false;
-        m_thConsume.join();
-    }
+    m_bCycleRun = false;
 
     if (NULL != m_pConn) {
         Disconnect();  
@@ -38,7 +35,7 @@ int CRabbitmqClient::Connect(const string &strHostname, int iPort, const string 
         return -1;
     }
 
-    m_pSock =  amqp_tcp_socket_new(m_pConn);
+    m_pSock = amqp_tcp_socket_new(m_pConn);
     if (NULL == m_pSock) {
         fprintf(stderr, "amqp tcp new socket failed\n");
         return -2;
@@ -298,11 +295,11 @@ int CRabbitmqClient::ConsumeAck(int iConsumeRet, uint64_t ullAckTag) {
     return 0;
 }
 
-void CRabbitmqClient::ConsumeThread(const string &strQueueName, FUNC_MSG_CALLBACK fnMsgCallback, struct timeval *timeout) {
+void CRabbitmqClient::ConsumeCycle(const string &strQueueName, FUNC_MSG_CALLBACK fnMsgCallback, struct timeval *timeout) {
     bool bOpenChannel = true;
-    m_bThreadRun = true;
+    m_bCycleRun = true;
 
-    while (m_bThreadRun) {
+    while (m_bCycleRun) {
         if (bOpenChannel) {
             if (0 != OpenChannel(strQueueName)) {
                 fprintf(stderr, "ConsumeThread OpenChannel failed\n");
@@ -329,7 +326,7 @@ void CRabbitmqClient::ConsumeThread(const string &strQueueName, FUNC_MSG_CALLBAC
         fprintf(stderr, "delivery_tag:%lu start process\n", envelope.delivery_tag);
         
         // 交给客户端处理消息数据
-        while(m_bThreadRun) {
+        while(m_bCycleRun) {
             int iRet = fnMsgCallback(strMsg);
             if (0 == iRet) {
                 fprintf(stderr, "delivery_tag:%lu process success\n", envelope.delivery_tag);
