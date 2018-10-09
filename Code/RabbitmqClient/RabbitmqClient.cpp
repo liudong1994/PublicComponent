@@ -75,7 +75,7 @@ int CRabbitmqClient::ExchangeDeclare(const string &strExchange, const string &st
     amqp_bytes_t _exchange = amqp_cstring_bytes(strExchange.c_str());
     amqp_bytes_t _type = amqp_cstring_bytes(strType.c_str());
     int _passive= 0;
-    int _durable= 0;      // 交换机是否持久化
+    int _durable= 1;      // 交换机是否持久化
     amqp_exchange_declare(m_pConn, m_iChannel, _exchange, _type, _passive, _durable, 0, 0, amqp_empty_table);
     if (0 != ErrorMsg(amqp_get_rpc_reply(m_pConn), "exchange_declare")) {
         amqp_channel_close(m_pConn, m_iChannel, AMQP_REPLY_SUCCESS);
@@ -95,7 +95,7 @@ int CRabbitmqClient::QueueDeclare(const string &strQueueName) {
     amqp_channel_open(m_pConn, m_iChannel);
     amqp_bytes_t _queue = amqp_cstring_bytes(strQueueName.c_str());
     int32_t _passive = 0;
-    int32_t _durable = 0;           // 队列是否持久化
+    int32_t _durable = 1;           // 队列是否持久化
     int32_t _exclusive = 0;         // 当连接不在时 是否自动删除queue
     int32_t _auto_delete = 0;       // 没有消费者时 是否自动删除queue
     amqp_queue_declare(m_pConn, m_iChannel, _queue, _passive, _durable, _exclusive, _auto_delete, amqp_empty_table);
