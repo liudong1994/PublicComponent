@@ -302,13 +302,13 @@ void CRabbitmqClient::ConsumeCycle(const string &strQueueName, FUNC_MSG_CALLBACK
     while (m_bCycleRun) {
         if (bOpenChannel) {
             if (0 != OpenChannel(strQueueName)) {
-                fprintf(stderr, "ConsumeThread OpenChannel failed\n");
+                fprintf(stderr, "ConsumeCycle OpenChannel QueueName:%s failed\n", strQueueName.c_str());
                 sleep(1);
                 continue;
             }
 
             bOpenChannel = false;
-            fprintf(stderr, "ConsumeThread OpenChannel success\n");
+            fprintf(stderr, "ConsumeCycle OpenChannel QueueName:%s success\n", strQueueName.c_str());
         }
 
         amqp_envelope_t envelope;
