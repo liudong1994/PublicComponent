@@ -127,8 +127,9 @@ private:
 
 
 private:
-    string                      m_strHostname;      // amqp主机
-    int                         m_iPort;            // amqp端口
+    vector<pair<string, int>>   m_vecAddrs;         // amqp地址组(集群的多个地址)
+    int                         m_iAddrsIndex;      // amqp地址组使用索引
+
     string					    m_strUser;
     string					    m_strPasswd;
     int                         m_iChannel; 

@@ -3,8 +3,7 @@
 
 
 CRabbitmqClient::CRabbitmqClient(int iChannle)
-: m_strHostname("") 
-, m_iPort(0)
+: m_iAddrsIndex(0)
 , m_strUser("")
 , m_strPasswd("")
 , m_iChannel(iChannle)
@@ -23,9 +22,13 @@ CRabbitmqClient::~CRabbitmqClient() {
     }
 }
 
-int CRabbitmqClient::Connect(const string &strHostname, int iPort, const string &strUser, const string &strPasswd) {
-    m_strHostname = strHostname;
-    m_iPort = iPort;
+int CRabbitmqClient::Connect(const vector<pair<string, int>> &vecAddrs, const string &strUser, const string &strPasswd) {
+    if (vecAddrs.size() == 0) {
+        fprintf(stderr, "amqp addrs size 0");
+        return -1;
+    }
+
+    m_vecAddrs = vecAddrs;
     m_strUser = strUser;
     m_strPasswd = strPasswd;
 
@@ -41,7 +44,12 @@ int CRabbitmqClient::Connect(const string &strHostname, int iPort, const string 
         return -2;
     }
 
-    int status = amqp_socket_open(m_pSock, m_strHostname.c_str(), m_iPort);
+    // 在地址组里找到 一个连接的ip和port
+    const string &strHost = m_vecAddrs[m_iAddrsIndex].first;
+    int iPort = m_vecAddrs[m_iAddrsIndex].second;
+    m_iAddrsIndex = (m_iAddrsIndex + 1) % m_vecAddrs.size();
+
+    int status = amqp_socket_open(m_pSock, strHost.c_str(), iPort);
     if (status < 0) {
         fprintf(stderr, "amqp socket open failed\n");
         return -3;
@@ -52,6 +60,7 @@ int CRabbitmqClient::Connect(const string &strHostname, int iPort, const string 
         return -4;
     }
     
+    fprintf(stderr, "amqp connect success, addrs:%s:%d user:%s\n", strHost.c_str(), iPort, m_strUser.c_str());
     return 0;
 }
 
