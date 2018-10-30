@@ -1,0 +1,4 @@
+2018-10-30：
+1.修改代码,在connect中打开channel,每个channel绑定连接时的socket,不再每个操作都开启/关闭channle。
+原因：同一socket不断开启/关闭socket进行数据发送会导致rabbitmq出现崩溃问题。
+

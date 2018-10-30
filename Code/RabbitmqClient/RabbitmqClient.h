@@ -9,19 +9,28 @@
 
 using std::string;
 using std::vector;
-using std::thread;
+using std::pair;
 
 
-typedef int (*FUNC_MSG_CALLBACK) (const string &strMsg);
-
-class CRabbitmqClient{
+class CRabbitmqClient {
 public:
     explicit CRabbitmqClient(int iChannle = 1);
     ~CRabbitmqClient();
 
+    /**
+	*   @brief       Connect            连接rabbitmq服务器并创建一个channel
+	*	@param       [in]               vecAddrs        服务器集群地址组
+	*   @param       [in]               strUser         用户名
+    *   @param       [in]               strPasswd       密码
+    *   @param       [in]               timeout         连接服务器超时时间
+	*   @return 等于0值代表成功连接服务器成功，小于0代表错误
+	*/
+    int Connect(const vector<pair<string, int>> &vecAddrs, const string &strUser, const string &strPasswd, timeval *timeout = nullptr);
 
-    int Connect(const string &strHostname, int iPort, const string &strUser, const string &strPasswd);
     int Disconnect();
+
+    int ReConnect();
+
 
     /**
 	*   @brief       ExchangeDeclare    声明exchange
@@ -43,7 +52,7 @@ public:
 	*   @brief       QueueBind                      将队列，交换机和绑定规则绑定起来形成一个路由表
 	*	@param       [in]           strQueueName    消息队列
 	*	@param       [in]           strExchange     交换机名称
-	*	@param       [in]           strBindKey      路由名称  “msg.#” “msg.weather.**”
+	*	@param       [in]           strBindKey      路由名称
     *   @return 等于0值代表成功绑定，小于0代表错误
 	*/
     int QueueBind(const string &strQueueName, const string &strExchange, const string &strBindKey);
@@ -52,7 +61,7 @@ public:
 	*   @brief       QueueUnbind                      将队列，交换机和绑定规则绑定解除
 	*	@param       [in]               strQueueName  消息队列
 	*	@param       [in]               strExchange   交换机名称
-	*	@param       [in]               strBindKey    路由名称  “msg.#” “msg.weather.**”
+	*	@param       [in]               strBindKey    路由名称
     *   @return 等于0值代表成功绑定，小于0代表错误
 	*/
     int QueueUnbind(const string &strQueueName, const string &strExchange, const string &strBindKey);
@@ -72,21 +81,11 @@ public:
 	* @param [in]   strRoutekey       路由规则 
     *   1.Direct Exchange – 处理路由键。需要将一个队列绑定到交换机上，要求该消息与一个特定的路由键完全匹配。
     *   2.Fanout Exchange – 不处理路由键。将队列绑定到交换机上。一个发送到交换机的消息都会被转发到与该交换机绑定的所有队列上。
-	*   3.Topic Exchange – 将路由键和某模式进行匹配。此时队列需要绑定要一个模式上。符号“#”匹配一个或多个词，符号“*”匹配不多不少一个词。
-    *      因此“audit.#”能够匹配到“audit.irs.corporate”，但是“audit.*” 只会匹配到“audit.irs”
+	*   3.Topic  Exchange – 将路由键和某模式进行匹配。此时队列需要绑定要一个模式上。符号"#"匹配一个或多个词，符号"*"匹配不多不少一个词。
+    *      因此"audit.#"能够匹配到"audit.irs.corporate"，但是"audit.*" 只会匹配到"audit.irs"
 	* @return 等于0值代表成功发送消息实体，小于0代表发送错误
 	*/
     int Publish(const string &strMessage, const string &strExchange, const string &strRoutekey);
-
-    /** 
-	* @brief Consumer  消费消息
-	* @param [in]   strQueueName         队列名称
-	* @param [out]  message_array        获取的消息实体数组
-    * @param [in]   GetNum               需要取得的消息个数
-	* @param [in]   timeout              取得的消息是延迟，若为NULL，表示持续取，无延迟，阻塞状态
-	* @return 等于0值代表成功，小于0代表错误，错误信息从ErrorReturn返回
-	*/
-    int Consume(const string &strQueueName, vector<string> &message_array, int GetNum = 1, struct timeval *timeout = NULL);
 
     /** 
 	* @brief ConsumerNeedAck  消费一条消息 需要确认
@@ -101,27 +100,26 @@ public:
 
     /** 
 	* @brief ConsumeAck  确认消息
-    * @param [in]       iConsumeRet     ConsumeNeedAck函数的返回值
 	* @param [in]       ullAckTag       确认消息时需要的tag
 	* @return 等于0值代表成功，小于0代表错误，错误信息从ErrorReturn返回
 	*/
-    int ConsumeAck(int iConsumeRet, uint64_t ullAckTag);
+    int ConsumeAck(uint64_t ullAckTag);
+
 
     /** 
-	* @brief ConsumeCycle  循环接收消息
-    * @param [in]   strQueueName        队列名称
-    * @param [in]   fnMsgCallback       获取消息成功时的消息回调处理函数
-    * @param [in]   timeout             取得的消息是延迟，若为NULL，表示持续取，无延迟，阻塞状态
+	* @brief Consumer  消费GetNum个消息
+	* @param [in]   strQueueName         队列名称
+	* @param [out]  vecMessage           获取的消息实体数组
+    * @param [in]   iGetNum              需要取得的消息个数
+	* @param [in]   timeout              取得的消息是延迟，若为NULL，表示持续取，无延迟，阻塞状态
+	* @return 等于0值代表成功，小于0代表错误，错误信息从ErrorReturn返回
 	*/
-    void ConsumeCycle(const string &strQueueName, FUNC_MSG_CALLBACK fnMsgCallback, struct timeval *timeout = NULL);
+    int Consume(const string &strQueueName, vector<string> &vecMessage, int iGetNum = 1, struct timeval *timeout = NULL);
 
-    void SetConsumeCycleStatus(bool bCycleRunStatus) { m_bCycleRun = bCycleRunStatus; }
 
 private:
     CRabbitmqClient(const CRabbitmqClient & rh);
     void operator=(const CRabbitmqClient & rh);
-
-    int OpenChannel(const string &strQueueName, int iGetNum = -1);
 
     int ErrorMsg(amqp_rpc_reply_t x, char const *context);
 
@@ -133,13 +131,14 @@ private:
     string					    m_strUser;
     string					    m_strPasswd;
     int                         m_iChannel; 
-
-    amqp_socket_t               *m_pSock;        
-    amqp_connection_state_t     m_pConn;
+    struct timeval              m_timeout;
 
 
 private:
-    bool                        m_bCycleRun;
+    amqp_socket_t               *m_pSock;        
+    amqp_connection_state_t     m_pConn;
+
+    bool                        m_bBasicConsume;    // 是否打开basicConsume
 };
 
 #endif

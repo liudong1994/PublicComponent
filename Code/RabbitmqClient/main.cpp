@@ -7,20 +7,21 @@
 #include "RabbitmqClient.h"
 
 
-int MsgCallback(const std::string &strMsg);
-
 int main()
 {
     CRabbitmqClient objRabbitmq;
 
-    std::string strIP = "192.168.240.121";
-    int iPort = 8856;
-    std::string strUser = "rabbitadmin";
-    std::string strPasswd = "123321";
+    vector<pair<string, int>> vecRabbitAddrs;
+    vecRabbitAddrs.push_back(std::make_pair("192.168.240.141", 5672));
+    vecRabbitAddrs.push_back(std::make_pair("192.168.240.142", 5672));
+    std::string strUser = "admin";
+    std::string strPasswd = "admin";
 
-
-    int iRet = objRabbitmq.Connect(strIP, iPort, strUser, strPasswd);
-    printf("Rabbitmq Connect Ret: %d\n", iRet);
+    if (0 != objRabbitmq.Connect(vecRabbitAddrs, strUser, strPasswd)) {
+        printf("Rabbitmq Connect failed\n");
+        return -1;
+    }
+    printf("Rabbitmq Connect success\n");
 
     
     std::string strExchange = "ExchangeTest";
@@ -29,7 +30,7 @@ int main()
 
 #if 0
     // 可选操作 Declare Exchange
-    iRet = objRabbitmq.ExchangeDeclare(strExchange, "direct");
+    int iRet = objRabbitmq.ExchangeDeclare(strExchange, "direct");
     printf("Rabbitmq ExchangeDeclare Ret: %d\n", iRet);
 
     // 可选操作（接收） Declare Queue
@@ -39,19 +40,30 @@ int main()
     // 可选操作（接收） Queue Bind
     iRet = objRabbitmq.QueueBind(strQueuename, strExchange, strRoutekey);
     printf("Rabbitmq QueueBind Ret: %d\n", iRet);
-
-    // Send Msg
-    std::string strSendMsg1 = "rabbitmq send test msg1";
-    std::string strSendMsg2 = "rabbitmq send test msg2";
-    iRet = objRabbitmq.Publish(strSendMsg1, strExchange, strRoutekey);
-    printf("Rabbitmq Publish 1 Ret: %d\n", iRet);
-    iRet = objRabbitmq.Publish(strSendMsg2, strExchange, strRoutekey);
-    printf("Rabbitmq Publish 2 Ret: %d\n", iRet);
 #endif
 
 
-#if 0
+    // Send Msg
+#if 1
+    while (1) {
+        std::string strSendMsg = "rabbitmq send test msg";
+        if (0 != objRabbitmq.Publish(strSendMsg, strExchange, strRoutekey)) {
+            printf("Rabbitmq Publish failed, reconnect\n");
+
+            while (0 != objRabbitmq.ReConnect()) {
+                printf("Rabbitmq Reconnect failed\n");
+                sleep(2);
+            }
+        }
+        printf("Rabbitmq Publish success\n");
+        sleep(10);
+    }
+
+#endif
+
+
     // Recv Msg
+#if 0
     std::vector<std::string> vecRecvMsg;
     iRet = objRabbitmq.Consume(strQueuename, vecRecvMsg, 2);
     printf("Rabbitmq Consumer Ret: %d\n", iRet);
@@ -64,21 +76,12 @@ int main()
         // Recv Msg
         std::string strRecvMsg;
         uint64_t llAcktag = 0;
-        iRet = objRabbitmq.ConsumeNeedAck(strQueuename, strRecvMsg, llAcktag);
+        int iRet = objRabbitmq.ConsumeNeedAck(strQueuename, strRecvMsg, llAcktag);
         printf("Rabbitmq Consumer Ret: %d  Tag: %lu  Msg: %s\n", iRet, llAcktag, strRecvMsg.c_str());
-        iRet = objRabbitmq.ConsumeAck(iRet, llAcktag);
+        objRabbitmq.ConsumeAck(llAcktag);
     }
-#else
-    // Recv Msg
-    objRabbitmq.ConsumeCycle(strQueuename, MsgCallback);
-    sleep(20);
 #endif
 
-    return 0;
-}
-
-int MsgCallback(const std::string &strMsg) {
-    printf("Rabbitmq Recv: %s\n", strMsg.c_str());
     return 0;
 }
 
