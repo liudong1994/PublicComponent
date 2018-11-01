@@ -101,9 +101,10 @@ public:
     /** 
 	* @brief ConsumeAck  确认消息
 	* @param [in]       ullAckTag       确认消息时需要的tag
+    * @param [in]       iMultiple       1-确认此tag之前的所有数据  0-只确认此tag
 	* @return 等于0值代表成功，小于0代表错误，错误信息从ErrorReturn返回
 	*/
-    int ConsumeAck(uint64_t ullAckTag);
+    int ConsumeAck(uint64_t ullAckTag, int iMultiple = 0);
 
 
     /** 

@@ -236,6 +236,7 @@ int CRabbitmqClient::ConsumeNeedAck(const string &strQueueName, string &strMessa
         amqp_basic_consume(m_pConn, m_iChannel, queuename, amqp_empty_bytes, 0, ack, 0, amqp_empty_table);
 
         if (0 != ErrorMsg(amqp_get_rpc_reply(m_pConn), "Consuming")) {
+            fprintf(stderr, "Consumer amqp basic consume failed\n");
             return -2;
         }
 
@@ -257,13 +258,13 @@ int CRabbitmqClient::ConsumeNeedAck(const string &strQueueName, string &strMessa
     return 0;
 }
 
-int CRabbitmqClient::ConsumeAck(uint64_t ullAckTag) {
+int CRabbitmqClient::ConsumeAck(uint64_t ullAckTag, int iMultiple) {
     if (NULL == m_pConn) {
         fprintf(stderr, "Consumer m_pConn is null, Consumer failed\n");
         return -1;
     }
     
-    int rtn = amqp_basic_ack(m_pConn, m_iChannel, ullAckTag, 1);
+    int rtn = amqp_basic_ack(m_pConn, m_iChannel, ullAckTag, iMultiple);
     if (rtn != 0) {
         fprintf(stderr, "ConsumeAck amqp_basic_ack failed\n");
         return -3;
