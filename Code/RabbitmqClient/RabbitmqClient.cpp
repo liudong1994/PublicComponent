@@ -117,7 +117,7 @@ int CRabbitmqClient::Disconnect() {
 
 int CRabbitmqClient::ReConnect() {
     Disconnect();
-    return Connect(m_vecAddrs, m_strUser, m_strPasswd, nullptr);
+    return Connect(m_vecAddrs, m_strUser, m_strPasswd, m_iRetry, nullptr);
 }
 
 int CRabbitmqClient::ExchangeDeclare(const string &strExchange, const string &strType) {
@@ -259,7 +259,7 @@ int CRabbitmqClient::ConsumeNeedAck(const string &strQueueName, string &strMessa
     amqp_rpc_reply_t res = amqp_consume_message(m_pConn, &envelope, timeout, 0);
     if (AMQP_RESPONSE_NORMAL != res.reply_type) {
         if (timeout != nullptr && res.library_error == AMQP_STATUS_TIMEOUT) {
-            return UPDATE_TIMEOUT;
+            return AMQP_TIMEOUT;
         }
         fprintf(stderr, "Consumer amqp consume message failed\n");
         return -res.reply_type;
