@@ -25,7 +25,7 @@ public:
     *   @param       [in]               timeout         连接服务器超时时间
 	*   @return 等于0值代表成功连接服务器成功，小于0代表错误
 	*/
-    int Connect(const vector<pair<string, int>> &vecAddrs, const string &strUser, const string &strPasswd, timeval *timeout = nullptr);
+    int Connect(const vector<pair<string, int>> &vecAddrs, const string &strUser, const string &strPasswd, int iRetry, timeval *timeout = nullptr);
 
     int Disconnect();
 
