@@ -131,7 +131,9 @@ private:
 
     string					    m_strUser;
     string					    m_strPasswd;
-    int                         m_iChannel; 
+    int                         m_iChannel;
+    int                         m_iRetry;
+
     struct timeval              m_timeout;
 
 
