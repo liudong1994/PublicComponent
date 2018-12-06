@@ -5,7 +5,6 @@
 2 make
 3 ./bin/***
 
-
 介绍：
 Code
 1.RingBuf           环形缓冲区代码实现以及使用方法
@@ -22,6 +21,7 @@ Code
 	queue_2			C++11实现
 7 ListThreadSafe 	读写列表（线程安全）
 8 AsyncTask			异步任务处理（内部实现依赖 7 ListThreadSafe）
+9 ConsistentHash	一致性哈希简单实现
 
 
 DB：
