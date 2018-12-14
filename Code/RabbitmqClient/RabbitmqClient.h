@@ -79,10 +79,6 @@ public:
 	* @param [in]   strMessage        消息实体
     * @param [in]   strExchange       交换器
 	* @param [in]   strRoutekey       路由规则 
-    *   1.Direct Exchange – 处理路由键。需要将一个队列绑定到交换机上，要求该消息与一个特定的路由键完全匹配。
-    *   2.Fanout Exchange – 不处理路由键。将队列绑定到交换机上。一个发送到交换机的消息都会被转发到与该交换机绑定的所有队列上。
-	*   3.Topic  Exchange – 将路由键和某模式进行匹配。此时队列需要绑定要一个模式上。符号"#"匹配一个或多个词，符号"*"匹配不多不少一个词。
-    *      因此"audit.#"能够匹配到"audit.irs.corporate"，但是"audit.*" 只会匹配到"audit.irs"
 	* @return 等于0值代表成功发送消息实体，小于0代表发送错误
 	*/
     int Publish(const string &strMessage, const string &strExchange, const string &strRoutekey);
