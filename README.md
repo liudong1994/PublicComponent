@@ -5,6 +5,7 @@
 2 make
 3 ./bin/***
 
+
 介绍：
 Code
 1.RingBuf           环形缓冲区代码实现以及使用方法
@@ -22,6 +23,7 @@ Code
 7 ListThreadSafe 	读写列表（线程安全）
 8 AsyncTask			异步任务处理（内部实现依赖 7 ListThreadSafe）
 9 ConsistentHash	一致性哈希简单实现
+10 TcpSend          简单的tcp发送接收工具，可模拟tcp及基于tcp的应用层协议（如HTTP）
 
 
 DB：
