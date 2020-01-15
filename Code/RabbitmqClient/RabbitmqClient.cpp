@@ -5,7 +5,36 @@ const int AMQP_OK = 0;
 const int AMQP_ERROR = -1;
 const int AMQP_TIMEOUT = -2;
 
+mutex CRabbitmqClient::m_mtxProxy;
+unordered_map<int, const shared_ptr<CRabbitmqClient>> CRabbitmqClient::m_hProxyRabbitmq;
 
+
+int CRabbitmqClient::getInstance(const int iModel, shared_ptr<CRabbitmqClient> &pRabbitmq) { 
+    auto fd = CRabbitmqClient::m_hProxyRabbitmq.find(iModel);
+    if (fd == CRabbitmqClient::m_hProxyRabbitmq.end()) {
+        return AMQP_ERROR;
+    }
+
+    pRabbitmq = fd->second;
+    return AMQP_OK;
+}
+
+int CRabbitmqClient::Init(const int iModel, const vector<pair<string, int>> &vecAddrs, const string &strUser, const string &strPasswd, int iRetry, int iHeartbeat) {
+    std::unique_lock<std::mutex> lock(CRabbitmqClient::m_mtxProxy);
+    if (CRabbitmqClient::m_hProxyRabbitmq.find(iModel) != CRabbitmqClient::m_hProxyRabbitmq.end()) {
+        fprintf(stderr, "rabbitmq model:%d has exit, not to init\n", iModel);
+        return AMQP_OK;
+    }
+
+    const shared_ptr<CRabbitmqClient> pRabbitmq(new CRabbitmqClient(iModel));
+    if (pRabbitmq->Connect(vecAddrs, strUser, strPasswd, iRetry, iHeartbeat) != 0) {
+        fprintf(stderr, "init rabbitmq connect error\n");
+        return AMQP_ERROR;
+    }
+
+    CRabbitmqClient::m_hProxyRabbitmq.insert(make_pair(iModel, pRabbitmq));
+    return AMQP_OK;
+}
 
 CRabbitmqClient::CRabbitmqClient(int iChannle)
 : m_iAddrsIndex(0)
@@ -13,6 +42,7 @@ CRabbitmqClient::CRabbitmqClient(int iChannle)
 , m_strPasswd("")
 , m_iChannel(iChannle)
 , m_iRetry(3)
+, m_iHeartbeat(0)
 , m_pSock(NULL)
 , m_pConn(NULL)
 , m_bBasicConsume(false) {
@@ -28,15 +58,16 @@ CRabbitmqClient::~CRabbitmqClient() {
     }
 }
 
-int CRabbitmqClient::Connect(const vector<pair<string, int>> &vecAddrs, const string &strUser, const string &strPasswd, int iRetry, timeval *timeout) {
+int CRabbitmqClient::Connect(const vector<pair<string, int>> &vecAddrs, const string &strUser, const string &strPasswd, int iRetry, int iHeartbeat, timeval *timeout) {
     if (vecAddrs.size() == 0) {
-        fprintf(stderr, "amqp addrs size 0");
+        fprintf(stderr, "amqp addrs size 0\n");
         return AMQP_ERROR;
     }
     m_vecAddrs = vecAddrs;
     m_strUser = strUser;
     m_strPasswd = strPasswd;
     m_iRetry = iRetry;
+    m_iHeartbeat = iHeartbeat;
 
     m_pConn = amqp_new_connection();
     if (NULL == m_pConn) {
@@ -73,7 +104,7 @@ int CRabbitmqClient::Connect(const vector<pair<string, int>> &vecAddrs, const st
         }
 
         // amqp_login(amqp_connection_state_t state,char const *vhost, int channel_max, int frame_max, int heartbeat, amqp_sasl_method_enum sasl_method, ..)
-        if (0 != ErrorMsg(amqp_login(m_pConn, "/", 0, 131072, 0, AMQP_SASL_METHOD_PLAIN, m_strUser.c_str(), m_strPasswd.c_str()), "Logging in")) {
+        if (0 != ErrorMsg(amqp_login(m_pConn, "/", 0, 131072, m_iHeartbeat, AMQP_SASL_METHOD_PLAIN, m_strUser.c_str(), m_strPasswd.c_str()), "Logging in")) {
             fprintf(stderr, "amqp login failed, addrs:%s:%d user:%s passwd:%s\n", strHost.c_str(), iPort, m_strUser.c_str(), m_strPasswd.c_str());
             continue;
         }
@@ -117,7 +148,7 @@ int CRabbitmqClient::Disconnect() {
 
 int CRabbitmqClient::ReConnect() {
     Disconnect();
-    return Connect(m_vecAddrs, m_strUser, m_strPasswd, m_iRetry, nullptr);
+    return Connect(m_vecAddrs, m_strUser, m_strPasswd, m_iRetry, m_iHeartbeat, nullptr);
 }
 
 int CRabbitmqClient::ExchangeDeclare(const string &strExchange, const string &strType) {
@@ -200,6 +231,27 @@ int CRabbitmqClient::QueueDelete(const string &strQueueName, int iIfUnused) {
     return AMQP_OK;
 }
 
+int CRabbitmqClient::SendHeartbeats() {
+    if (NULL == m_pConn) {
+        fprintf(stderr, "ThreadHeartbeats m_pConn is null, heartbeats failed\n");
+        return AMQP_ERROR;
+    }
+
+    amqp_frame_t heartbeat;
+    heartbeat.channel = 0;
+    heartbeat.frame_type = AMQP_FRAME_HEARTBEAT;
+
+    std::unique_lock<std::mutex> lock(CRabbitmqClient::m_mtxSendMsg);
+    int iRet = amqp_send_frame(m_pConn, &heartbeat);
+    if (0 != iRet) {
+        fprintf(stderr, "amqp_send_frame failed, ret:%d\n", iRet);
+        ReConnect();
+        return AMQP_ERROR;
+    }
+    fprintf(stderr, "sent heartbeat\n");
+    return AMQP_OK;
+}
+
 int CRabbitmqClient::Publish(const string &strMessage, const string &strExchange, const string &strRoutekey) {
     if (NULL == m_pConn) {
         fprintf(stderr, "publish m_pConn is null, publish failed\n");
@@ -222,11 +274,13 @@ int CRabbitmqClient::Publish(const string &strMessage, const string &strExchange
     amqp_bytes_t routekey = amqp_cstring_bytes(strRoutekey.c_str());
 
     for(int i=0; i<m_iRetry; ++i) {
-        //if (0 != amqp_basic_publish(m_pConn, m_iChannel, exchange, routekey, 0, 0, &props, message_bytes)) {
+        //if (0 == amqp_basic_publish(m_pConn, m_iChannel, exchange, routekey, 0, 0, &props, message_bytes)) {
+        std::unique_lock<std::mutex> lock(CRabbitmqClient::m_mtxSendMsg);
         if (0 == amqp_basic_publish(m_pConn, m_iChannel, exchange, routekey, 0, 0, NULL, message_bytes)) {
             return AMQP_OK;
         }
         fprintf(stderr, "publish amqp_basic_publish failed, retry\n");
+        ReConnect();
     }
 
     // 处理失败
@@ -242,6 +296,8 @@ int CRabbitmqClient::ConsumeNeedAck(const string &strQueueName, string &strMessa
     }
 
     if (!m_bBasicConsume) {
+        amqp_basic_qos(m_pConn, m_iChannel, 0, 64, 0);      // 设置预取的最大消息数目
+
         int ack = 0; // no_ack    是否需要确认消息后再从队列中删除消息(0-需要确认 1-不需要确认)
         amqp_bytes_t queuename = amqp_cstring_bytes(strQueueName.c_str());
         amqp_basic_consume(m_pConn, m_iChannel, queuename, amqp_empty_bytes, 0, ack, 0, amqp_empty_table);

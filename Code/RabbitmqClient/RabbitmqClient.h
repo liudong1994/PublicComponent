@@ -4,17 +4,21 @@
 
 #include <string>
 #include <vector>
+#include <memory>
+#include <unordered_map>
+#include <mutex>
 #include <thread>
 #include "amqp_tcp_socket.h"
 
-using std::string;
-using std::vector;
-using std::pair;
+
+using namespace std;
 
 
 class CRabbitmqClient {
 public:
-    explicit CRabbitmqClient(int iChannle = 1);
+    static int getInstance(const int iModel, shared_ptr<CRabbitmqClient> &pDoSql);
+    static int Init(const int iModel, const vector<pair<string, int>> &vecAddrs, const string &strUser, const string &strPasswd, int iRetry, int iHeartbeat = 0);
+
     ~CRabbitmqClient();
 
     /**
@@ -22,10 +26,12 @@ public:
 	*	@param       [in]               vecAddrs        服务器集群地址组
 	*   @param       [in]               strUser         用户名
     *   @param       [in]               strPasswd       密码
+    *   @param       [in]               iRetry          发送消息时最多重试次数
+    *   @param       [in]               iHeartbeat      心跳时间（如果是接收消息MQ最好设置此时间  发送消息MQ设置为0即可(接收消息时线程阻塞接收 MQ处理心跳,发送消息MQ没有线程处理心跳包)）
     *   @param       [in]               timeout         连接服务器超时时间
 	*   @return 等于0值代表成功连接服务器成功，小于0代表错误
 	*/
-    int Connect(const vector<pair<string, int>> &vecAddrs, const string &strUser, const string &strPasswd, int iRetry, timeval *timeout = nullptr);
+    int Connect(const vector<pair<string, int>> &vecAddrs, const string &strUser, const string &strPasswd, int iRetry, int iHeartbeat = 0, timeval *timeout = nullptr);
 
     int Disconnect();
 
@@ -79,12 +85,16 @@ public:
 	* @param [in]   strMessage        消息实体
     * @param [in]   strExchange       交换器
 	* @param [in]   strRoutekey       路由规则 
+    *   1.Direct Exchange – 处理路由键。需要将一个队列绑定到交换机上，要求该消息与一个特定的路由键完全匹配。
+    *   2.Fanout Exchange – 不处理路由键。将队列绑定到交换机上。一个发送到交换机的消息都会被转发到与该交换机绑定的所有队列上。
+	*   3.Topic  Exchange – 将路由键和某模式进行匹配。此时队列需要绑定要一个模式上。符号"#"匹配一个或多个词，符号"*"匹配不多不少一个词。
+    *      因此"audit.#"能够匹配到"audit.irs.corporate"，但是"audit.*" 只会匹配到"audit.irs"
 	* @return 等于0值代表成功发送消息实体，小于0代表发送错误
 	*/
     int Publish(const string &strMessage, const string &strExchange, const string &strRoutekey);
 
     /** 
-	* @brief ConsumerNeedAck  消费一条消息 需要确认
+	* @brief ConsumeNeedAck  消费一条消息 需要确认
 	* @param [in]   strQueueName        队列名称
 	* @param [out]  strMessage          获取的消息实体
     * @param [in]   ullAckTag           确认消息时需要的tag
@@ -104,7 +114,7 @@ public:
 
 
     /** 
-	* @brief Consumer  消费GetNum个消息
+	* @brief Consume  消费GetNum个消息
 	* @param [in]   strQueueName         队列名称
 	* @param [out]  vecMessage           获取的消息实体数组
     * @param [in]   iGetNum              需要取得的消息个数
@@ -113,8 +123,14 @@ public:
 	*/
     int Consume(const string &strQueueName, vector<string> &vecMessage, int iGetNum = 1, struct timeval *timeout = NULL);
 
+    /** 
+	* @brief SendHeartbeats  主动发送心跳包
+	* @return 等于0值代表成功，小于0代表错误
+	*/
+    int SendHeartbeats();
 
 private:
+    explicit CRabbitmqClient(int iChannle = 1);
     CRabbitmqClient(const CRabbitmqClient & rh);
     void operator=(const CRabbitmqClient & rh);
 
@@ -129,6 +145,7 @@ private:
     string					    m_strPasswd;
     int                         m_iChannel;
     int                         m_iRetry;
+    int                         m_iHeartbeat;
 
     struct timeval              m_timeout;
 
@@ -138,6 +155,12 @@ private:
     amqp_connection_state_t     m_pConn;
 
     bool                        m_bBasicConsume;    // 是否打开basicConsume
+    std::mutex                  m_mtxSendMsg;       // 保证发送心跳和普通消息不冲突（rabbitmq-c非线程安全）
+
+    // Proxy
+private:
+    static std::mutex m_mtxProxy;
+    static std::unordered_map<int, const shared_ptr<CRabbitmqClient>> m_hProxyRabbitmq;
 };
 
 #endif
