@@ -1,4 +1,4 @@
-### PublicComponent
+## PublicComponent
 
 平常写代码过程中需要用到的一些公共代码组件
 
@@ -14,23 +14,23 @@
 
 
 
-### 介绍：
+## 介绍：
 
-#### 一、Code
+### 一、Code
 
-##### 1.RingBuf
+#### 1.RingBuf
 
 环形缓冲区代码实现以及使用方法
 
 
 
-##### 2.Cache
+#### 2.Cache
 
 类redis内存缓冲区
 
 
 
-##### 3.Util
+#### 3.Util
 
 ​    3.1 url_util    url编码 解码类
 
@@ -38,13 +38,13 @@
 
 
 
-##### 4.RabbitmqClient    
+#### 4.RabbitmqClient
 
 Rabbitmq客户端代码（机器需要安装rabbitmq-c库 github:https://github.com/alanxz/rabbitmq-c）
 
 
 
-##### 5.DirMonitor        Linux目录变化监控
+#### 5.DirMonitor        Linux目录变化监控
 
 ​    5.1 DM-nonblock     内部启动线程，文件通知统一接收，另一线程统一处理
 
@@ -52,7 +52,7 @@ Rabbitmq客户端代码（机器需要安装rabbitmq-c库 github:https://github.
 
 
 
-##### 6.QueueThreadSafe   
+#### 6.QueueThreadSafe
 
 读写队列(线程安全)
 
@@ -62,31 +62,31 @@ Rabbitmq客户端代码（机器需要安装rabbitmq-c库 github:https://github.
 
 
 
-##### 7 ListThreadSafe
+#### 7 ListThreadSafe
 
 读写列表（线程安全）
 
 
 
-##### 8 AsyncTask         
+#### 8 AsyncTask
 
 异步任务处理（内部实现依赖 7 ListThreadSafe）
 
 
 
-##### 9 ConsistentHash    
+#### 9 ConsistentHash
 
 一致性哈希简单实现
 
 
 
-##### 10 TcpSend          
+#### 10 TcpSend
 
 简单的tcp发送接收工具，可模拟tcp及基于tcp的应用层协议（如HTTP）
 
 
 
-##### 11 TimerTask        
+#### 11 TimerTask
 
 函数模板定时器
 
@@ -94,17 +94,19 @@ Rabbitmq客户端代码（机器需要安装rabbitmq-c库 github:https://github.
 
 
 
-#### 二、DB：
+### 二、DB：
 
-##### 1.Redis             
+#### 1.Redis
 
 Redis数据库(无集群)交互代码实现以及使用方法
 
 
 
+
+
 ### 三、Linux：
 
-##### 1.StartShell        
+#### 1.StartShell
 
 CentOS6/7下的开机自启脚本安装go
 
