@@ -24,6 +24,7 @@ Code
 8 AsyncTask			异步任务处理（内部实现依赖 7 ListThreadSafe）
 9 ConsistentHash	一致性哈希简单实现
 10 TcpSend          简单的tcp发送接收工具，可模拟tcp及基于tcp的应用层协议（如HTTP）
+11 AsyncTimerTask	异步延迟任务处理（内部实现依赖 7 ListThreadSafe）
 
 
 DB：

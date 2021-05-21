@@ -23,7 +23,7 @@ public:
         {}
 
         bool operator<(const InnerTask& other) const {
-            return (*this).timestamp_ms < other.timestamp_ms;
+            return (*this).timestamp_ms > other.timestamp_ms;
         }
     };
 
@@ -44,6 +44,8 @@ public:
 
     virtual ~CAsyncTimerTask() 
     {
+        m_run = false;
+
         // master中数据处理
         {
             std::unique_lock<std::mutex> lck(m_mtx);
@@ -92,7 +94,7 @@ protected:
     // 一个主线程 判断时间
     void handle_master()
     {
-        while(1) {
+        while(m_run) {
 
             uint64_t sleep_time_ms = 500;   // 500ms
 
@@ -124,7 +126,7 @@ protected:
         while(1) {
             T task;
             if (!m_list.pop_front(task, TYPE_BLOCK)) {//will block
-                if (m_list.is_stop()) {
+                if (!m_run) {
                     return;
                 }
                 usleep(30);
@@ -135,6 +137,8 @@ protected:
     }
         
 private:
+    bool m_run = true;
+
     size_t m_max_size;
     size_t m_max_work;
     size_t m_dalay_time_ms;
