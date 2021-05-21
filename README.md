@@ -92,6 +92,10 @@ Rabbitmq客户端代码（机器需要安装rabbitmq-c库 github:https://github.
 
 
 
+#### 11 AsyncTimerTask
+
+异步延迟任务处理（内部实现依赖 7 ListThreadSafe）
+
 
 
 ### 二、DB：
