@@ -18,7 +18,7 @@ void async_handler(Context *ctx)
 {
     uint64_t time_diff = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count() - ctx->value;
 
-    if (time_diff > 2005) {
+    if (time_diff > 2002) {
         printf("async handler ctx value:%lu  diff:%lu\n", ctx->value, time_diff);
     }
 
@@ -30,12 +30,12 @@ void async_handler(Context *ctx)
 
 int main()
 {
-	CAsyncTimerTask<Context *>* _async = new CAsyncTimerTask<Context *>(async_handler, 1024000, 4, 2000);
+	CAsyncTimerTask<Context *>* _async = new CAsyncTimerTask<Context *>(async_handler, 1024000, 4);
 
     for (int i=0; i<100000; ++i) {
         Context* ctx = new Context;
         ctx->value = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
-        _async->add_task(ctx);
+        _async->add_task(ctx, std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count() + 2000);
         usleep(1);
     }
 

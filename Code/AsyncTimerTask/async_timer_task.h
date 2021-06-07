@@ -2,11 +2,12 @@
 #ifndef ASYNC_TIMER_H_
 #define ASYNC_TIMER_H_
 
+#include <unistd.h>
 #include <thread>
 #include <chrono>
 #include <queue>
 #include <mutex>
-#include <unistd.h>
+#include <condition_variable>
 #include "list_util.h"
 
 
@@ -29,12 +30,11 @@ public:
 
 
 public:
-    CAsyncTimerTask(void (*func)(T), const int max_size = 0, const int max_work = 1, const int delay_time_ms = 1000)
+    CAsyncTimerTask(void (*func)(T), const int max_size = 0, const int max_work = 1)
     : m_func(func)
     {
         m_max_size = max_size > 0 ? max_size : 0;
         m_max_work = max_work > 0 ? max_work : 1;
-        m_dalay_time_ms = delay_time_ms > 0 ? delay_time_ms : 1000;
 
         for (size_t i = 0; i < m_max_work; ++i) {
             threads.push_back(std::thread(worker, (void *)this));
@@ -55,6 +55,8 @@ public:
                 m_list.push_back(inner_task.raw_task);
                 m_timer_tasks.pop();
             }
+
+            m_cv.notify_all();
         }
 
         // worker数据处理
@@ -65,17 +67,17 @@ public:
         }
     }
     
-    int add_task(T & task)
+    int add_task(T & task, uint64_t absTimestamp)
     {
         if (m_max_size > 0 && m_timer_tasks.size() >= m_max_size) {
+            fprintf(stderr, "process size too large, maxsize:%lu  cursize:%lu\n", m_max_size, m_timer_tasks.size());
             return -1;
         }
 
-        uint64_t process_time = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count() + m_dalay_time_ms;
-        InnerTask inner_task(task, process_time);
-
+        InnerTask inner_task(task, absTimestamp);
         std::unique_lock<std::mutex> lck(m_mtx);
         m_timer_tasks.push(inner_task);
+        m_cv.notify_one();
         return 0;
     }
 
@@ -98,26 +100,24 @@ protected:
 
             uint64_t sleep_time_ms = 500;   // 500ms
 
-            {
-                std::unique_lock<std::mutex> lck(m_mtx);
-                uint64_t cur_timestamp_ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+            std::unique_lock<std::mutex> lck(m_mtx);
+            uint64_t cur_timestamp_ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
 
-                while (!m_timer_tasks.empty()) {
-                    InnerTask inner_task = m_timer_tasks.top();
+            while (!m_timer_tasks.empty()) {
+                InnerTask inner_task = m_timer_tasks.top();
 
-                    if (cur_timestamp_ms >= inner_task.timestamp_ms) {
-                        m_list.push_back(inner_task.raw_task);
-                        m_timer_tasks.pop();
+                if (cur_timestamp_ms >= inner_task.timestamp_ms) {
+                    m_list.push_back(inner_task.raw_task);
+                    m_timer_tasks.pop();
 
-                    } else {
-                        sleep_time_ms = inner_task.timestamp_ms - cur_timestamp_ms;
-                        break;
-                    }
+                } else {
+                    sleep_time_ms = inner_task.timestamp_ms - cur_timestamp_ms;
+                    break;
                 }
             }
 
-            // todo 不同task有不同的dalay_time  select监听信号+超时时间/信号量设置超时时间?
-            std::this_thread::sleep_for(std::chrono::milliseconds(sleep_time_ms));
+            // 不同task有不同的dalay_time 信号量超时时间+信号通知
+            m_cv.wait_for(lck, std::chrono::milliseconds(sleep_time_ms));
         }
     }
 
@@ -141,15 +141,15 @@ private:
 
     size_t m_max_size;
     size_t m_max_work;
-    size_t m_dalay_time_ms;
     std::list<std::thread> threads;
 
     void (*m_func)(T);
 
     std::mutex m_mtx;
+    std::condition_variable m_cv;
     std::priority_queue<InnerTask> m_timer_tasks;
 
-    CThreadSafeList<T> m_list;
+    CThreadSafeList<T> m_list;  // 防止任务耗时处理  影响任务处理  但是线程处理任务
 };
 
 
